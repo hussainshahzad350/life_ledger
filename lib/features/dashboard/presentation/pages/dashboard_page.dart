@@ -15,6 +15,8 @@ import 'package:life_ledger/features/food/presentation/pages/quick_add_page.dart
 import 'package:life_ledger/features/insights/presentation/pages/insights_page.dart';
 import 'package:life_ledger/features/journal/presentation/cubit/journal_cubit.dart';
 import 'package:life_ledger/features/reports/presentation/pages/reports_page.dart';
+import 'package:life_ledger/features/settings/presentation/cubit/settings_cubit.dart';
+import 'package:life_ledger/features/settings/presentation/pages/settings_page.dart';
 import 'package:life_ledger/features/trackers/presentation/pages/trackers_page.dart';
 import 'package:life_ledger/features/water/domain/repositories/water_repository.dart';
 import 'package:life_ledger/features/water/presentation/cubit/water_cubit.dart';
@@ -89,6 +91,16 @@ class _DashboardView extends StatelessWidget {
     );
   }
 
+  void _openSettings(BuildContext context) {
+    final settings = context.read<SettingsCubit>();
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            BlocProvider.value(value: settings, child: const SettingsPage()),
+      ),
+    );
+  }
+
   Future<void> _openQuickAdd(BuildContext context) async {
     await Navigator.of(context).push<FoodEntry>(
       MaterialPageRoute(
@@ -126,6 +138,11 @@ class _DashboardView extends StatelessWidget {
             icon: const Icon(Icons.lightbulb_outline),
             tooltip: 'Insights',
             onPressed: () => _openInsights(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => _openSettings(context),
           ),
         ],
       ),

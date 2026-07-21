@@ -3,21 +3,63 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_ledger/app/app.dart';
+import 'package:life_ledger/core/di/injector.dart';
+import 'package:life_ledger/core/error/result.dart';
+import 'package:life_ledger/features/data/domain/data_repository.dart';
+import 'package:life_ledger/features/notifications/domain/reminder_scheduler.dart';
 import 'package:life_ledger/features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import 'package:life_ledger/features/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:life_ledger/features/settings/domain/settings.dart';
+import 'package:life_ledger/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockOnboardingCubit extends MockCubit<OnboardingState>
     implements OnboardingCubit {}
 
+class _StubSettingsRepository implements SettingsRepository {
+  @override
+  Future<Result<Settings>> load() async => const Result.success(Settings());
+
+  @override
+  Future<Result<void>> save(Settings settings) async =>
+      const Result.success(null);
+}
+
+class _StubDataRepository implements DataRepository {
+  @override
+  Future<Result<String>> exportJson() async => const Result.success('{}');
+
+  @override
+  Future<Result<ImportResult>> importJson(String json) async =>
+      const Result.success(ImportResult(rowsWritten: 0, migrated: false));
+
+  @override
+  Future<Result<void>> wipeAll() async => const Result.success(null);
+}
+
 void main() {
-  testWidgets('app shell renders the home placeholder', (tester) async {
-    await tester.pumpWidget(const LifeLedgerApp());
-    expect(find.text('LifeLedger'), findsOneWidget);
-    expect(
-      find.text('Understand your body, one day at a time.'),
-      findsOneWidget,
-    );
+  group('app shell', () {
+    setUp(() {
+      getIt.registerFactory<SettingsCubit>(
+        () => SettingsCubit(
+          settings: _StubSettingsRepository(),
+          data: _StubDataRepository(),
+          cipher: const IdentityBackupCipher(),
+          reminders: const NoopReminderScheduler(),
+        ),
+      );
+    });
+    tearDown(getIt.reset);
+
+    testWidgets('renders the home placeholder', (tester) async {
+      await tester.pumpWidget(const LifeLedgerApp());
+      await tester.pump();
+      expect(find.text('LifeLedger'), findsOneWidget);
+      expect(
+        find.text('Understand your body, one day at a time.'),
+        findsOneWidget,
+      );
+    });
   });
 
   group('OnboardingPage (docs/08 F1)', () {

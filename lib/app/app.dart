@@ -8,6 +8,8 @@ import 'package:life_ledger/features/dashboard/presentation/pages/dashboard_page
 import 'package:life_ledger/features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import 'package:life_ledger/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:life_ledger/features/profile/application/get_current_user_id.dart';
+import 'package:life_ledger/features/settings/domain/settings.dart';
+import 'package:life_ledger/features/settings/presentation/cubit/settings_cubit.dart';
 
 /// The root widget: MaterialApp shell with Material 3 light/dark themes
 /// (docs/05-uiux-system.md). Shows the skippable onboarding wizard on
@@ -43,13 +45,27 @@ class _LifeLedgerAppState extends State<LifeLedgerApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'LifeLedger',
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      home: _home(),
+    return BlocProvider<SettingsCubit>(
+      create: (_) => getIt<SettingsCubit>()..load(),
+      child: BlocBuilder<SettingsCubit, SettingsState>(
+        builder: (context, state) {
+          return MaterialApp(
+            title: 'LifeLedger',
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            themeMode: _themeMode(state.settings.theme),
+            home: _home(),
+          );
+        },
+      ),
     );
   }
+
+  ThemeMode _themeMode(ThemePreference preference) => switch (preference) {
+    ThemePreference.system => ThemeMode.system,
+    ThemePreference.light => ThemeMode.light,
+    ThemePreference.dark => ThemeMode.dark,
+  };
 
   Widget _home() {
     if (_showOnboarding) {

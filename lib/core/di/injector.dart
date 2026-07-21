@@ -6,6 +6,8 @@ import 'package:life_ledger/core/logging/app_logger.dart';
 import 'package:life_ledger/core/time/clock.dart';
 import 'package:life_ledger/core/utils/id_generator.dart';
 import 'package:life_ledger/features/dashboard/application/get_daily_summary.dart';
+import 'package:life_ledger/features/data/domain/data_repository.dart';
+import 'package:life_ledger/features/data/infrastructure/data_repository_impl.dart';
 import 'package:life_ledger/features/exercise/domain/exercise_entry.dart';
 import 'package:life_ledger/features/exercise/infrastructure/exercise_repository_impl.dart';
 import 'package:life_ledger/features/food/application/food_use_cases.dart';
@@ -22,6 +24,7 @@ import 'package:life_ledger/features/insights/infrastructure/insight_context_gat
 import 'package:life_ledger/features/insights/infrastructure/insight_repository_impl.dart';
 import 'package:life_ledger/features/mood/domain/mood_entry.dart';
 import 'package:life_ledger/features/mood/infrastructure/mood_repository_impl.dart';
+import 'package:life_ledger/features/notifications/domain/reminder_scheduler.dart';
 import 'package:life_ledger/features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import 'package:life_ledger/features/profile/application/get_current_user_id.dart';
 import 'package:life_ledger/features/profile/application/save_profile.dart';
@@ -29,6 +32,9 @@ import 'package:life_ledger/features/profile/domain/repositories/profile_reposit
 import 'package:life_ledger/features/profile/infrastructure/repositories/profile_repository_impl.dart';
 import 'package:life_ledger/features/reports/domain/report_models.dart';
 import 'package:life_ledger/features/reports/infrastructure/report_repository_impl.dart';
+import 'package:life_ledger/features/settings/domain/settings.dart';
+import 'package:life_ledger/features/settings/infrastructure/settings_repository_impl.dart';
+import 'package:life_ledger/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:life_ledger/features/sleep/domain/sleep_entry.dart';
 import 'package:life_ledger/features/sleep/infrastructure/sleep_repository_impl.dart';
 import 'package:life_ledger/features/symptoms/domain/symptom.dart';
@@ -143,6 +149,14 @@ Future<void> configureDependencies() async {
         ids: getIt<IdGenerator>(),
       ),
     )
+    ..registerLazySingleton<DataRepository>(
+      () => DataRepositoryImpl(db: getIt<AppDatabase>(), clock: getIt<Clock>()),
+    )
+    ..registerLazySingleton<SettingsRepository>(
+      () => SettingsRepositoryImpl(getIt<AppMetaStore>()),
+    )
+    ..registerLazySingleton<BackupCipher>(IdentityBackupCipher.new)
+    ..registerLazySingleton<ReminderScheduler>(NoopReminderScheduler.new)
     ..registerLazySingleton<FoodSeeder>(() => FoodSeeder(getIt<AppDatabase>()))
     // Use cases.
     ..registerFactory<SaveProfile>(
@@ -181,6 +195,14 @@ Future<void> configureDependencies() async {
       ),
     )
     // Cubits.
+    ..registerFactory<SettingsCubit>(
+      () => SettingsCubit(
+        settings: getIt<SettingsRepository>(),
+        data: getIt<DataRepository>(),
+        cipher: getIt<BackupCipher>(),
+        reminders: getIt<ReminderScheduler>(),
+      ),
+    )
     ..registerFactory<GoalsCubit>(
       () => GoalsCubit(repository: getIt<GoalRepository>()),
     )
@@ -216,6 +238,10 @@ void diSelfCheck() {
     ..get<ReportRepository>()
     ..get<InsightContextGateway>()
     ..get<InsightRepository>()
+    ..get<DataRepository>()
+    ..get<SettingsRepository>()
+    ..get<BackupCipher>()
+    ..get<ReminderScheduler>()
     ..get<FoodSeeder>()
     ..get<SaveProfile>()
     ..get<GetProfile>()
@@ -225,6 +251,7 @@ void diSelfCheck() {
     ..get<GetDailySummary>()
     ..get<GenerateDefaultGoals>()
     ..get<GenerateInsights>()
+    ..get<SettingsCubit>()
     ..get<GoalsCubit>()
     ..get<OnboardingCubit>();
 }
