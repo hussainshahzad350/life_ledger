@@ -1,0 +1,34 @@
+# LifeLedger analyzer configuration — zero-warning policy (docs/10-coding-standards.md §1).
+# CI fails on any analyzer diagnostic (`flutter analyze --fatal-infos`).
+
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-raw-types: true
+    strict-inference: true
+  errors:
+    todo: warning
+
+linter:
+  rules:
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - prefer_final_locals
+    - prefer_final_in_for_each
+    - avoid_print # use AppLogger (docs/03 §5)
+    - require_trailing_commas
+    - always_declare_return_types
+    - unawaited_futures
+    - avoid_dynamic_calls
+    - use_build_context_synchronously
+    - directives_ordering
+    - public_member_api_docs # every public API documented (docs/10 §3, NFR-22)
+    - avoid_redundant_argument_values
+    - cast_nullable_to_non_nullable
+    - only_throw_errors
+    - prefer_single_quotes
+    - sort_pub_dependencies
+    - unnecessary_lambdas
+    - unnecessary_parenthesis
