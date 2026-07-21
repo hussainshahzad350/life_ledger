@@ -1,6 +1,7 @@
 # Phase 7 — AI Rules (Health Assistant)
 
-> Part of the [LifeLedger Specification](00-README-index.md). Depends on: [04](04-database-design.md), [06](06-health-rules.md). Feeds: [08](08-feature-specs.md).
+> Part of the [LifeLedger Specification](00-README-index.md). Depends on: [04](04-database-design.md), [06](06-health-rules.md), [18](18-health-decision-engine.md). Feeds: [08](08-feature-specs.md).
+> Science context: [Knowledge Base](../knowledge/00-index.md); safety stance: [decisions/why-ai-is-not-a-doctor.md](../decisions/why-ai-is-not-a-doctor.md).
 
 **The AI is a Health Assistant, not a chatbot and not a doctor.** It analyzes patterns, generates
 insights, detects trends, and explains — always with uncertainty, never with diagnosis. This
@@ -35,24 +36,121 @@ defined now so a smarter implementation drops in later without touching the rest
 
 ---
 
-## 3. Insight Types (v1 rule catalog)
+## 2b. AI Evolution Roadmap (Phase 1 → 4)
 
-Each rule has a stable `rule_id` (stored on `insight.rule_id`, [04](04-database-design.md) §4.7),
-a trigger, a data window, a minimum-sample threshold, a confidence policy, and a message template.
+The AI grows through four phases behind **stable interfaces** — each phase preserves the hard
+constraints in §1 (never diagnose, always show uncertainty, privacy-first).
 
-| rule_id | Category | Fires when | Example message |
-|---|---|---|---|
-| `TREND_PROTEIN_UP` | Trend | 7-day protein-adherence rises vs. prior 7 days by ≥ threshold | "You hit your protein goal 5 of 7 days last week — up from 2." |
-| `TREND_WEIGHT` | Trend | Moving-average weight slope over ≥ N days exceeds threshold | "Your weight trend is gently down (~0.3 kg/wk) this month." |
-| `STREAK_WATER_MISS` | Streak | Water goal missed ≥ 3 consecutive days | "You've been under your water goal 4 days running." |
-| `STREAK_LOG` | Streak/habit | Logged every day for ≥ 7 days | "7-day logging streak — nice consistency." |
-| `CORR_FOOD_SYMPTOM` | Correlation | A food flag co-occurs with a symptom above chance over the window (§5) | "On days you logged 'dairy', you reported bloating more often (low confidence)." |
-| `CORR_SLEEP_MOOD` | Correlation | Short-sleep days associate with lower mood over the window | "Your mood tends to be lower after nights under 6h (low confidence)." |
-| `GOAL_PROTEIN_GAP` | Threshold | Weekly protein consistently < X% of goal | "You're averaging 62% of your protein goal this week." |
-| `HYDRATION_TIMING` | Pattern | Most water logged late in the day | "Most of your water comes after 6pm — spreading it out may help." |
+```mermaid
+flowchart LR
+    P1["Phase 1: Rule Engine (v1) — deterministic, on-device"]
+    P2["Phase 2: LLM (opt-in) — richer language, labeled"]
+    P3["Phase 3: Local AI — on-device model, private by default"]
+    P4["Phase 4: Personalized AI — adapts to the individual"]
+    P1 --> P2 --> P3 --> P4
+```
 
-The catalog is **extensible**: adding a rule = adding a `rule_id` row here + a pure rule function
-([09](09-folder-structure.md)) + tests. No schema change needed.
+| Phase | Capability | Privacy posture | Interface stability | Entry criteria |
+|---|---|---|---|---|
+| **1 — Rule Engine** (v1) | Deterministic rules over logged data (§3); safety filter; template output. | Fully on-device, offline, no cloud. | Defines `InsightEngine`, `FoodTextParser`, `CorrelationAnalyzer`. | Ships in v1 ([ADR-0007](adr/0001-record-architecture-decisions.md#adr-0007)). |
+| **2 — LLM** (opt-in) | Natural-language explanations / Q&A over the user's *own* summarized data. | **Opt-in only**, clearly labeled; never required; data-minimizing. Cloud LLM is an accessory, not the core ([decisions/why-ai-is-not-a-doctor.md](../decisions/why-ai-is-not-a-doctor.md)). | Same interfaces; new impl behind a flag. | Rule engine proven; safety guardrails extended to generated text. |
+| **3 — Local AI** | On-device model for NL parsing + smarter, private insights. | On-device by default — restores full privacy for smarter AI. | Swap impls behind existing interfaces. | Viable on-device models; acceptable perf ([14](14-performance.md)). |
+| **4 — Personalized AI** | Adapts thresholds/insights to the individual's baselines and preferences. | On-device personalization; user owns the model state; exportable/erasable. | Same interfaces + a personalization layer. | Enough per-user data; personalization proven to help, not mislead. |
+
+**Invariant across all phases:** no diagnosis, mandatory uncertainty, on-device-first, user control.
+A later phase never weakens an earlier phase's privacy or safety.
+
+---
+
+## 3. Insight Rule Catalog (v1)
+
+Each rule has a stable `rule_id` (stored on `insight.rule_id`, [04 §4.7](04-database-design.md)) and is
+specified with the full per-rule template: **Trigger · Input · Logic · Confidence · Output · Warning ·
+Example · Failure Cases.** Rules consume [Decision Engine](18-health-decision-engine.md) evaluations.
+Thresholds are **named constants** (no magic numbers), documented and unit-tested.
+
+The catalog is **extensible**: a new rule = a new `rule_id` + a pure rule function ([09](09-folder-structure.md)) +
+tests. No schema change needed.
+
+### `TREND_PROTEIN_UP` — Trend
+- **Trigger:** 7-day protein-adherence rises vs. the prior 7 days by ≥ `TREND_DELTA_PCT`.
+- **Input:** daily protein vs. `ProteinGoal` ([06 Rule 4](06-health-rules.md)) for 14 days.
+- **Logic:** compare "days met" (or mean adherence) across the two windows; require ≥ `MIN_SAMPLE_TREND` days.
+- **Confidence:** medium/high (factual trend).
+- **Output:** "You hit your protein goal 5 of 7 days last week — up from 2."
+- **Warning:** none (positive, factual).
+- **Example:** week A 2/7 → week B 5/7 ⇒ fires.
+- **Failure Cases:** sparse logging (< sample) ⇒ silence; goal changed mid-window ⇒ use goal-in-force ([04 §4.2](04-database-design.md)).
+
+### `TREND_WEIGHT` — Trend
+- **Trigger:** moving-average weight slope over ≥ `MIN_SAMPLE_TREND` days exceeds `WEIGHT_SLOPE_MIN`.
+- **Input:** `weight_entry` series ([06 Rule 3](06-health-rules.md), [knowledge/weight_loss.md](../knowledge/weight_loss.md)).
+- **Logic:** moving average (not raw readings) → slope classification improving/stable/declining ([18 Trend Evaluation](18-health-decision-engine.md)).
+- **Confidence:** medium (descriptive, not predictive).
+- **Output:** "Your weight trend is gently down (~0.3 kg/wk) this month."
+- **Warning:** if change exceeds a safe rate, gently suggest reviewing goals / a clinician for rapid unexplained change — never diagnose.
+- **Example:** 30-day MA slope −0.3 kg/wk ⇒ fires "down".
+- **Failure Cases:** too few weigh-ins ⇒ silence; single outlier ⇒ smoothed out by MA.
+
+### `STREAK_WATER_MISS` — Streak
+- **Trigger:** water goal missed ≥ `STREAK_MIN_DAYS` (default 3) consecutive days.
+- **Input:** daily water vs. `WaterGoal` ([06 Rule 6](06-health-rules.md)).
+- **Logic:** count consecutive miss days up to today.
+- **Confidence:** high (factual).
+- **Output:** "You've been under your water goal 4 days running."
+- **Warning:** supportive nudge only; never shaming ([knowledge/psychology/streak-psychology.md](../knowledge/psychology/streak-psychology.md)).
+- **Example:** 4 consecutive < goal ⇒ fires.
+- **Failure Cases:** unlogged days are **not** assumed misses (missing ≠ zero) ⇒ streak breaks to `insufficient_data`.
+
+### `STREAK_LOG` — Habit
+- **Trigger:** logged every day for ≥ `STREAK_LOG_DAYS` (default 7).
+- **Input:** presence of any entry per `local_date`.
+- **Logic:** consecutive-day count ([18 Consistency Evaluation](18-health-decision-engine.md)).
+- **Confidence:** high.
+- **Output:** "7-day logging streak — nice consistency."
+- **Warning:** none; a **humane** streak — a missed day doesn't erase progress ([knowledge/psychology/streak-psychology.md](../knowledge/psychology/streak-psychology.md)).
+- **Example:** 7 straight days with ≥ 1 entry ⇒ fires.
+- **Failure Cases:** must not weaponize on break (no guilt notification).
+
+### `CORR_FOOD_SYMPTOM` — Correlation
+- **Trigger:** a curated food flag co-occurs with a symptom above chance over the window (§5).
+- **Input:** daily food-flag (0/1) vs. `symptom_entry` severity ([knowledge/symptoms.md](../knowledge/symptoms.md), [knowledge/digestion.md](../knowledge/digestion.md)).
+- **Logic:** exposed vs. unexposed day comparison; require `MIN_EXPOSED_DAYS`; effect ≥ threshold (§5).
+- **Confidence:** **capped at medium, defaults low** — association only.
+- **Output:** "On days you logged 'dairy', you reported bloating more often (low confidence)."
+- **Warning:** explicit "association, not cause; many factors matter; not a medical finding."
+- **Example:** bloating on 6/8 dairy days vs 1/12 non-dairy ⇒ fires low.
+- **Failure Cases:** too few exposed days ⇒ silence; never tests uncurated pairs (avoids data dredging).
+
+### `CORR_SLEEP_MOOD` — Correlation
+- **Trigger:** short-sleep days associate with lower mood over the window.
+- **Input:** sleep duration bucket vs. `mood_entry` ([knowledge/sleep.md](../knowledge/sleep.md)).
+- **Logic:** exposed (< `SHORT_SLEEP_H`, e.g. 6h) vs. rest; same honesty rules as above.
+- **Confidence:** low/medium (association).
+- **Output:** "Your mood tends to be lower after nights under 6h (low confidence)."
+- **Warning:** association-only; personal pattern (Evidence **D** at individual level).
+- **Example:** mean mood 2.4 on short-sleep vs 3.6 otherwise, sufficient sample ⇒ fires.
+- **Failure Cases:** sparse mood/sleep logs ⇒ silence.
+
+### `GOAL_PROTEIN_GAP` — Threshold
+- **Trigger:** weekly protein averages < `PROTEIN_GAP_PCT` of goal.
+- **Input:** 7-day protein vs. goal.
+- **Logic:** mean adherence below threshold ([18 Protein Evaluation](18-health-decision-engine.md)).
+- **Confidence:** medium (factual gap).
+- **Output:** "You're averaging 62% of your protein goal this week."
+- **Warning:** gentle; may suggest protein-rich foods ([knowledge/protein.md](../knowledge/protein.md)); never prescriptive.
+- **Example:** avg 62% ⇒ fires.
+- **Failure Cases:** partial-week/sparse logging ⇒ silence or `insufficient_data`.
+
+### `HYDRATION_TIMING` — Pattern
+- **Trigger:** most water logged after `LATE_HOUR` (e.g., 18:00) across the window.
+- **Input:** intra-day timestamps of `water_entry` ([knowledge/hydration.md](../knowledge/hydration.md)).
+- **Logic:** share of daily water logged late; exceeds `LATE_SHARE_PCT` on enough days.
+- **Confidence:** low (behavioral pattern).
+- **Output:** "Most of your water comes after 6pm — spreading it out may help."
+- **Warning:** suggestion only; framed as an experiment.
+- **Example:** > 60% of water after 6pm on 5/7 days ⇒ fires.
+- **Failure Cases:** too few logged times ⇒ silence.
 
 ---
 

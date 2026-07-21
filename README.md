@@ -30,9 +30,21 @@ Start at the specification index:
 
 ### 👉 [`docs/00-README-index.md`](docs/00-README-index.md)
 
-The spec is organized in 12 phases (Vision → Requirements → Architecture → Database → UI/UX →
+The spec is organized in 18 phases/docs (Vision → Requirements → Architecture → Database → UI/UX →
 Health Rules → AI Rules → Feature Specs → Folder Structure → Coding Standards → Testing →
-Implementation Plan), plus an append-only [Architecture Decision Record log](docs/adr/0001-record-architecture-decisions.md).
+Implementation Plan → Security & Privacy → Performance → Release Roadmap → Behavioral Design →
+Food Database → Health Decision Engine), plus an append-only
+[Architecture Decision Record log](docs/adr/0001-record-architecture-decisions.md).
+
+Alongside the numbered specs, three folders form the **Single Source of Truth** for health facts and
+rationale — the foundation for the AI, insights, in-app Help/Education, and a future chat assistant:
+
+- [`/knowledge`](knowledge/00-index.md) — evidence-tagged Health Knowledge Base (protein, water, sleep,
+  BMI, digestion…) + [`/knowledge/psychology`](knowledge/psychology/00-index.md) (behavioral science:
+  habit formation, motivation, streaks, decision fatigue…). *Optimize for behavior, not just architecture.*
+- [`/research`](research/00-index.md) — the source registry (WHO, NIH, Dietary Guidelines, USDA, …).
+- [`/decisions`](decisions/00-index.md) — product decisions (why offline-first, why no ads, why the AI
+  isn't a doctor…), distinct from the technical ADRs.
 
 ## Tech (decided in the spec)
 

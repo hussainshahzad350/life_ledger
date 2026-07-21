@@ -49,7 +49,23 @@ earlier ones; the dependency direction is strictly downward.
 | 10 | [Coding Standards](10-coding-standards.md) | 10 | Dart/Flutter style, naming, docs, lint, immutability, commits | 03, 09 |
 | 11 | [Testing Strategy](11-testing-strategy.md) | 11 | Test pyramid, coverage targets, DB harness, CI expectations | 03, 04, 10 |
 | 12 | [Implementation Plan](12-implementation-plan.md) | 12 | Milestones, dependency-ordered work breakdown, Definition of Done | all |
-| — | [ADR Log](adr/0001-record-architecture-decisions.md) | — | Architecture Decision Records (append-only decision journal) | — |
+| 13 | [Security & Privacy](13-security-privacy.md) | — | Threat model, encryption, permissions, data retention, cloud-security design | 02, 03, 04 |
+| 14 | [Performance](14-performance.md) | — | Concrete budgets, DB/query/render/memory/battery, offline targets | 02, 03, 04 |
+| 15 | [Release Roadmap](15-release-roadmap.md) | — | Product ladder: MVP → v1.0 → v1.1 → Premium → AI → Cloud → Wear OS → Doctor → Family | 12 |
+| 16 | [Behavioral Design](16-behavioral-design.md) | — | Applies behavioral science to UX ("optimize for behavior") | 05, KB/psychology |
+| 17 | [Food Database](17-food-database.md) | — | Food catalog: nutrients, units, servings, aliases, localized/restaurant/recipes/brands | 04 |
+| 18 | [Health Decision Engine](18-health-decision-engine.md) | — | Evaluation layer (formulas → decisions) + Decision Log | 06, 04 |
+| — | [ADR Log](adr/0001-record-architecture-decisions.md) | — | Architecture Decision Records (append-only technical decisions) | — |
+
+### Knowledge & Decisions (Single Source of Truth)
+Beyond the numbered specs, three top-level folders hold the durable knowledge foundation that powers
+the AI, insights, in-app Help/Education, and the future chat assistant:
+
+| Folder | Purpose |
+|---|---|
+| [`/knowledge`](../knowledge/00-index.md) | Health Knowledge Base — one file per topic (protein, water, sleep…), evidence-tagged; plus [`/knowledge/psychology`](../knowledge/psychology/00-index.md) (behavioral science). **The single source of truth for health facts.** |
+| [`/research`](../research/00-index.md) | Source Registry — WHO, NIH, Dietary Guidelines, USDA, Pakistan data, research papers. The citation backbone. |
+| [`/decisions`](../decisions/00-index.md) | **Product** decisions (why offline-first, why no ads, why AI isn't a doctor…), distinct from the technical ADR log. |
 
 ---
 
@@ -103,16 +119,21 @@ These are decided here and justified in the referenced documents. Changes requir
 | **Use Case** | A single application-layer operation (one verb) orchestrating domain + repositories. |
 | **Failure** | A typed, domain-level error object returned via `Either`, never thrown across layers. |
 | **Soft delete** | Marking a row deleted (`is_deleted = 1`) rather than removing it — preserves sync history. |
-| **ADR** | Architecture Decision Record — an append-only note capturing one significant decision. |
+| **ADR** | Architecture Decision Record — an append-only note capturing one significant *technical* decision. |
+| **Product Decision** | A *product/ethics* "why" record in [`/decisions`](../decisions/00-index.md), distinct from an ADR. |
+| **Knowledge Base (KB)** | [`/knowledge`](../knowledge/00-index.md) — the single source of truth for health facts, referenced (not restated) by rules/AI/Help. |
+| **Evidence Level** | A–D strength tag on a knowledge claim; governs how confidently the AI may state it. |
+| **Decision Engine** | The evaluation layer ([18](18-health-decision-engine.md)) that turns computed values into decisions + a Decision Log. |
 
 ---
 
 ## 6. How to Extend This Documentation
 
-- **New significant decision?** Add an ADR under [`adr/`](adr/) (copy the template in ADR-0001). Do not silently rewrite history.
+- **New significant *technical* decision?** Add an ADR under [`adr/`](adr/) (copy the template in ADR-0001). A **product** decision goes in [`/decisions`](../decisions/00-index.md). Do not silently rewrite history.
 - **New feature?** Add it to [`08-feature-specs.md`](08-feature-specs.md), then cascade changes into DB ([04](04-database-design.md)), UI ([05](05-uiux-system.md)), rules ([06](06-health-rules.md)/[07](07-ai-rules.md)) as needed.
+- **New health fact?** Add/extend a [`/knowledge`](../knowledge/00-index.md) file (evidence-tagged, sourced via [`/research`](../research/00-index.md)); link it from the rule/AI that uses it. One fact, one home.
 - **Schema change?** Bump the DB version and add a migration in [04](04-database-design.md). Never edit an existing migration.
-- **Consistency rule:** every feature must trace to a table, a screen, and (where relevant) a health/AI rule. Orphans are bugs.
+- **Consistency rule:** every feature traces to a table, a screen, and (where relevant) a health/AI rule and a knowledge file. Orphans are bugs.
 
 ---
 
@@ -121,6 +142,7 @@ These are decided here and justified in the referenced documents. Changes requir
 | Date | Version | Change |
 |---|---|---|
 | 2026-07-21 | 0.1.0 | Initial complete 12-phase specification set authored (documentation-only). |
+| 2026-07-21 | 0.2.0 | Knowledge & decision foundation: added `/knowledge` (13 health + 8 psychology), `/research` registry, `/decisions` (5 product decisions); new docs 13–18 (Security & Privacy, Performance, Release Roadmap, Behavioral Design, Food Database, Health Decision Engine); enriched 06 (per-rule template), 07 (AI evolution roadmap + full rule template), 08 (Future Evolution per feature). |
 
 ---
 
