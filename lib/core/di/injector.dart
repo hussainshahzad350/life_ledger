@@ -6,6 +6,8 @@ import 'package:life_ledger/core/logging/app_logger.dart';
 import 'package:life_ledger/core/time/clock.dart';
 import 'package:life_ledger/core/utils/id_generator.dart';
 import 'package:life_ledger/features/dashboard/application/get_daily_summary.dart';
+import 'package:life_ledger/features/exercise/domain/exercise_entry.dart';
+import 'package:life_ledger/features/exercise/infrastructure/exercise_repository_impl.dart';
 import 'package:life_ledger/features/food/application/food_use_cases.dart';
 import 'package:life_ledger/features/food/domain/repositories/food_repository.dart';
 import 'package:life_ledger/features/food/infrastructure/food_seeder.dart';
@@ -14,11 +16,17 @@ import 'package:life_ledger/features/goals/application/generate_default_goals.da
 import 'package:life_ledger/features/goals/domain/repositories/goal_repository.dart';
 import 'package:life_ledger/features/goals/infrastructure/repositories/goal_repository_impl.dart';
 import 'package:life_ledger/features/goals/presentation/cubit/goals_cubit.dart';
+import 'package:life_ledger/features/mood/domain/mood_entry.dart';
+import 'package:life_ledger/features/mood/infrastructure/mood_repository_impl.dart';
 import 'package:life_ledger/features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import 'package:life_ledger/features/profile/application/get_current_user_id.dart';
 import 'package:life_ledger/features/profile/application/save_profile.dart';
 import 'package:life_ledger/features/profile/domain/repositories/profile_repository.dart';
 import 'package:life_ledger/features/profile/infrastructure/repositories/profile_repository_impl.dart';
+import 'package:life_ledger/features/sleep/domain/sleep_entry.dart';
+import 'package:life_ledger/features/sleep/infrastructure/sleep_repository_impl.dart';
+import 'package:life_ledger/features/symptoms/domain/symptom.dart';
+import 'package:life_ledger/features/symptoms/infrastructure/symptom_repository_impl.dart';
 import 'package:life_ledger/features/water/domain/repositories/water_repository.dart';
 import 'package:life_ledger/features/water/infrastructure/repositories/water_repository_impl.dart';
 import 'package:life_ledger/features/weight/domain/repositories/weight_repository.dart';
@@ -78,6 +86,34 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton<WaterRepository>(
       () => WaterRepositoryImpl(
+        db: getIt<AppDatabase>(),
+        clock: getIt<Clock>(),
+        ids: getIt<IdGenerator>(),
+      ),
+    )
+    ..registerLazySingleton<SleepRepository>(
+      () => SleepRepositoryImpl(
+        db: getIt<AppDatabase>(),
+        clock: getIt<Clock>(),
+        ids: getIt<IdGenerator>(),
+      ),
+    )
+    ..registerLazySingleton<MoodRepository>(
+      () => MoodRepositoryImpl(
+        db: getIt<AppDatabase>(),
+        clock: getIt<Clock>(),
+        ids: getIt<IdGenerator>(),
+      ),
+    )
+    ..registerLazySingleton<SymptomRepository>(
+      () => SymptomRepositoryImpl(
+        db: getIt<AppDatabase>(),
+        clock: getIt<Clock>(),
+        ids: getIt<IdGenerator>(),
+      ),
+    )
+    ..registerLazySingleton<ExerciseRepository>(
+      () => ExerciseRepositoryImpl(
         db: getIt<AppDatabase>(),
         clock: getIt<Clock>(),
         ids: getIt<IdGenerator>(),
@@ -143,6 +179,10 @@ void diSelfCheck() {
     ..get<WeightRepository>()
     ..get<FoodRepository>()
     ..get<WaterRepository>()
+    ..get<SleepRepository>()
+    ..get<MoodRepository>()
+    ..get<SymptomRepository>()
+    ..get<ExerciseRepository>()
     ..get<FoodSeeder>()
     ..get<SaveProfile>()
     ..get<GetProfile>()

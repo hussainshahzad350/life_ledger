@@ -13,6 +13,7 @@ import 'package:life_ledger/features/food/domain/repositories/food_repository.da
 import 'package:life_ledger/features/food/presentation/cubit/quick_add_cubit.dart';
 import 'package:life_ledger/features/food/presentation/pages/quick_add_page.dart';
 import 'package:life_ledger/features/journal/presentation/cubit/journal_cubit.dart';
+import 'package:life_ledger/features/trackers/presentation/pages/trackers_page.dart';
 import 'package:life_ledger/features/water/domain/repositories/water_repository.dart';
 import 'package:life_ledger/features/water/presentation/cubit/water_cubit.dart';
 
@@ -67,6 +68,13 @@ class _DashboardView extends StatelessWidget {
     if (context.mounted) await context.read<JournalCubit>().load();
   }
 
+  Future<void> _openTrackers(BuildContext context) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => TrackersPage(userId: userId)),
+    );
+    if (context.mounted) await _refreshAll(context);
+  }
+
   Future<void> _openQuickAdd(BuildContext context) async {
     await Navigator.of(context).push<FoodEntry>(
       MaterialPageRoute(
@@ -87,7 +95,16 @@ class _DashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Today')),
+      appBar: AppBar(
+        title: const Text('Today'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.timeline_outlined),
+            tooltip: 'Trackers',
+            onPressed: () => _openTrackers(context),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openQuickAdd(context),
         icon: const Icon(Icons.add),
