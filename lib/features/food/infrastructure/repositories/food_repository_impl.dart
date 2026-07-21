@@ -242,6 +242,46 @@ class FoodRepositoryImpl implements FoodRepository {
     }
   }
 
+  @override
+  Future<Result<Nutrition>> totalsForDate(
+    String userId,
+    String localDate,
+  ) async {
+    try {
+      // Aggregate in SQL: sum(item nutrient × entry quantity) (docs/14 §4).
+      final rows = await _database.rawQuery(
+        '''
+        SELECT
+          COALESCE(SUM(fi.calories  * fe.quantity), 0) AS calories,
+          COALESCE(SUM(fi.protein_g * fe.quantity), 0) AS protein_g,
+          COALESCE(SUM(fi.carbs_g   * fe.quantity), 0) AS carbs_g,
+          COALESCE(SUM(fi.fat_g     * fe.quantity), 0) AS fat_g,
+          COALESCE(SUM(fi.fiber_g   * fe.quantity), 0) AS fiber_g,
+          COALESCE(SUM(fi.sugar_g   * fe.quantity), 0) AS sugar_g
+        FROM food_entry fe
+        JOIN food_item fi ON fi.id = fe.food_item_id
+        WHERE fe.user_id = ? AND fe.local_date = ? AND fe.is_deleted = 0
+        ''',
+        [userId, localDate],
+      );
+      final row = rows.single;
+      return Result.success(
+        Nutrition(
+          calories: (row['calories']! as num).toDouble(),
+          proteinG: (row['protein_g']! as num).toDouble(),
+          carbsG: (row['carbs_g']! as num).toDouble(),
+          fatG: (row['fat_g']! as num).toDouble(),
+          fiberG: (row['fiber_g']! as num).toDouble(),
+          sugarG: (row['sugar_g']! as num).toDouble(),
+        ),
+      );
+    } on DatabaseException catch (e) {
+      return Result.failure(
+        DatabaseFailure('day totals query failed', cause: e),
+      );
+    }
+  }
+
   Future<Result<FoodEntry>> _entryById(String entryId) async {
     final rows = await _database.rawQuery(
       '''

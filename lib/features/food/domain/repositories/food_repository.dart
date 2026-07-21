@@ -49,4 +49,8 @@ abstract interface class FoodRepository {
     String userId,
     String localDate,
   );
+
+  /// The day's derived nutrition totals, aggregated in SQL for the dashboard
+  /// (docs/08 F10, docs/14 §4).
+  Future<Result<Nutrition>> totalsForDate(String userId, String localDate);
 }

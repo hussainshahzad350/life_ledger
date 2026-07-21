@@ -54,30 +54,38 @@ class WeightRepositoryImpl implements WeightRepository {
 
   @override
   Future<Result<WeightEntry?>> getLatest(String userId) async {
+    final result = await getRecent(userId, limit: 1);
+    return result.map((rows) => rows.isEmpty ? null : rows.first);
+  }
+
+  @override
+  Future<Result<List<WeightEntry>>> getRecent(
+    String userId, {
+    int limit = 2,
+  }) async {
     try {
       final rows = await _db.database.query(
         'weight_entry',
         where: 'user_id = ? AND is_deleted = 0',
         whereArgs: [userId],
-        orderBy: 'logged_at DESC',
-        limit: 1,
+        // rowid breaks ties on identical timestamps: latest insert wins.
+        orderBy: 'logged_at DESC, rowid DESC',
+        limit: limit,
       );
-      if (rows.isEmpty) return const Result.success(null);
-      final row = rows.single;
-      return Result.success(
-        WeightEntry(
-          id: row['id']! as String,
-          userId: row['user_id']! as String,
-          weightKg: (row['weight_kg']! as num).toDouble(),
-          loggedAt: DateTime.fromMillisecondsSinceEpoch(
-            row['logged_at']! as int,
-            isUtc: true,
-          ),
-          localDate: row['local_date']! as String,
-        ),
-      );
+      return Result.success(rows.map(_fromRow).toList());
     } on DatabaseException catch (e) {
       return Result.failure(DatabaseFailure('weight read failed', cause: e));
     }
   }
+
+  WeightEntry _fromRow(Map<String, Object?> row) => WeightEntry(
+    id: row['id']! as String,
+    userId: row['user_id']! as String,
+    weightKg: (row['weight_kg']! as num).toDouble(),
+    loggedAt: DateTime.fromMillisecondsSinceEpoch(
+      row['logged_at']! as int,
+      isUtc: true,
+    ),
+    localDate: row['local_date']! as String,
+  );
 }

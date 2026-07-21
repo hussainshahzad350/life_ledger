@@ -5,6 +5,7 @@ import 'package:life_ledger/core/database/app_meta_store.dart';
 import 'package:life_ledger/core/logging/app_logger.dart';
 import 'package:life_ledger/core/time/clock.dart';
 import 'package:life_ledger/core/utils/id_generator.dart';
+import 'package:life_ledger/features/dashboard/application/get_daily_summary.dart';
 import 'package:life_ledger/features/food/application/food_use_cases.dart';
 import 'package:life_ledger/features/food/domain/repositories/food_repository.dart';
 import 'package:life_ledger/features/food/infrastructure/food_seeder.dart';
@@ -98,6 +99,15 @@ Future<void> configureDependencies() async {
     ..registerFactory<GetDayTimeline>(
       () => GetDayTimeline(getIt<FoodRepository>()),
     )
+    ..registerFactory<GetDailySummary>(
+      () => GetDailySummary(
+        food: getIt<FoodRepository>(),
+        water: getIt<WaterRepository>(),
+        weight: getIt<WeightRepository>(),
+        goals: getIt<GoalRepository>(),
+        clock: getIt<Clock>(),
+      ),
+    )
     ..registerFactory<GenerateDefaultGoals>(
       () => GenerateDefaultGoals(
         goals: getIt<GoalRepository>(),
@@ -139,6 +149,7 @@ void diSelfCheck() {
     ..get<GetCurrentUserId>()
     ..get<LogFoodEntry>()
     ..get<GetDayTimeline>()
+    ..get<GetDailySummary>()
     ..get<GenerateDefaultGoals>()
     ..get<GoalsCubit>()
     ..get<OnboardingCubit>();

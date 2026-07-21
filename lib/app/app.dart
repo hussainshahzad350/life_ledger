@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:life_ledger/core/di/injector.dart';
 import 'package:life_ledger/core/theme/app_theme.dart';
 import 'package:life_ledger/core/theme/tokens.dart';
-import 'package:life_ledger/features/journal/presentation/pages/today_page.dart';
+import 'package:life_ledger/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:life_ledger/features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import 'package:life_ledger/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:life_ledger/features/profile/application/get_current_user_id.dart';
@@ -60,7 +60,7 @@ class _LifeLedgerAppState extends State<LifeLedgerApp> {
     }
     final userId = _userId;
     if (userId == null) return const ShellPlaceholder();
-    return TodayPage(userId: userId);
+    return DashboardPage(userId: userId);
   }
 }
 

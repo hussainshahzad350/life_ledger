@@ -14,4 +14,8 @@ abstract interface class WeightRepository {
 
   /// The most recent (non-deleted) reading, or null when none exist.
   Future<Result<WeightEntry?>> getLatest(String userId);
+
+  /// The most recent [limit] readings, newest first (for the dashboard trend
+  /// arrow and, later, the weight chart — docs/08 F5/F10).
+  Future<Result<List<WeightEntry>>> getRecent(String userId, {int limit = 2});
 }

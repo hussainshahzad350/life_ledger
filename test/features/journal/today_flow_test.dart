@@ -157,6 +157,18 @@ class _FakeFoodRepository implements FoodRepository {
     String localDate,
   ) async =>
       Result.success(_entries.where((e) => e.localDate == localDate).toList());
+
+  @override
+  Future<Result<Nutrition>> totalsForDate(
+    String userId,
+    String localDate,
+  ) async {
+    var total = Nutrition.zero;
+    for (final e in _entries.where((e) => e.localDate == localDate)) {
+      total = total + e.nutrition;
+    }
+    return Result.success(total);
+  }
 }
 
 /// A minimal in-memory [WaterRepository].
