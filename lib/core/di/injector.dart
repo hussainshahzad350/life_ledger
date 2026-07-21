@@ -5,14 +5,21 @@ import 'package:life_ledger/core/database/app_meta_store.dart';
 import 'package:life_ledger/core/logging/app_logger.dart';
 import 'package:life_ledger/core/time/clock.dart';
 import 'package:life_ledger/core/utils/id_generator.dart';
+import 'package:life_ledger/features/food/application/food_use_cases.dart';
+import 'package:life_ledger/features/food/domain/repositories/food_repository.dart';
+import 'package:life_ledger/features/food/infrastructure/food_seeder.dart';
+import 'package:life_ledger/features/food/infrastructure/repositories/food_repository_impl.dart';
 import 'package:life_ledger/features/goals/application/generate_default_goals.dart';
 import 'package:life_ledger/features/goals/domain/repositories/goal_repository.dart';
 import 'package:life_ledger/features/goals/infrastructure/repositories/goal_repository_impl.dart';
 import 'package:life_ledger/features/goals/presentation/cubit/goals_cubit.dart';
 import 'package:life_ledger/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:life_ledger/features/profile/application/get_current_user_id.dart';
 import 'package:life_ledger/features/profile/application/save_profile.dart';
 import 'package:life_ledger/features/profile/domain/repositories/profile_repository.dart';
 import 'package:life_ledger/features/profile/infrastructure/repositories/profile_repository_impl.dart';
+import 'package:life_ledger/features/water/domain/repositories/water_repository.dart';
+import 'package:life_ledger/features/water/infrastructure/repositories/water_repository_impl.dart';
 import 'package:life_ledger/features/weight/domain/repositories/weight_repository.dart';
 import 'package:life_ledger/features/weight/infrastructure/repositories/weight_repository_impl.dart';
 
@@ -61,6 +68,21 @@ Future<void> configureDependencies() async {
         ids: getIt<IdGenerator>(),
       ),
     )
+    ..registerLazySingleton<FoodRepository>(
+      () => FoodRepositoryImpl(
+        db: getIt<AppDatabase>(),
+        clock: getIt<Clock>(),
+        ids: getIt<IdGenerator>(),
+      ),
+    )
+    ..registerLazySingleton<WaterRepository>(
+      () => WaterRepositoryImpl(
+        db: getIt<AppDatabase>(),
+        clock: getIt<Clock>(),
+        ids: getIt<IdGenerator>(),
+      ),
+    )
+    ..registerLazySingleton<FoodSeeder>(() => FoodSeeder(getIt<AppDatabase>()))
     // Use cases.
     ..registerFactory<SaveProfile>(
       () => SaveProfile(
@@ -69,6 +91,13 @@ Future<void> configureDependencies() async {
       ),
     )
     ..registerFactory<GetProfile>(() => GetProfile(getIt<ProfileRepository>()))
+    ..registerFactory<GetCurrentUserId>(
+      () => GetCurrentUserId(getIt<ProfileRepository>()),
+    )
+    ..registerFactory<LogFoodEntry>(() => LogFoodEntry(getIt<FoodRepository>()))
+    ..registerFactory<GetDayTimeline>(
+      () => GetDayTimeline(getIt<FoodRepository>()),
+    )
     ..registerFactory<GenerateDefaultGoals>(
       () => GenerateDefaultGoals(
         goals: getIt<GoalRepository>(),
@@ -102,8 +131,14 @@ void diSelfCheck() {
     ..get<ProfileRepository>()
     ..get<GoalRepository>()
     ..get<WeightRepository>()
+    ..get<FoodRepository>()
+    ..get<WaterRepository>()
+    ..get<FoodSeeder>()
     ..get<SaveProfile>()
     ..get<GetProfile>()
+    ..get<GetCurrentUserId>()
+    ..get<LogFoodEntry>()
+    ..get<GetDayTimeline>()
     ..get<GenerateDefaultGoals>()
     ..get<GoalsCubit>()
     ..get<OnboardingCubit>();

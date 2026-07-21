@@ -4,18 +4,24 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:life_ledger/core/di/injector.dart';
 import 'package:life_ledger/core/theme/app_theme.dart';
 import 'package:life_ledger/core/theme/tokens.dart';
+import 'package:life_ledger/features/journal/presentation/pages/today_page.dart';
 import 'package:life_ledger/features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import 'package:life_ledger/features/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:life_ledger/features/profile/application/get_current_user_id.dart';
 
 /// The root widget: MaterialApp shell with Material 3 light/dark themes
 /// (docs/05-uiux-system.md). Shows the skippable onboarding wizard on
-/// first launch; the dashboard replaces the placeholder home in M4.
+/// first launch, then the interim "Today" home (M3); the full dashboard
+/// replaces it in M4.
 class LifeLedgerApp extends StatefulWidget {
-  /// Creates the app shell. [showOnboarding] is true on first launch.
-  const LifeLedgerApp({this.showOnboarding = false, super.key});
+  /// Creates the app shell.
+  const LifeLedgerApp({this.showOnboarding = false, this.userId, super.key});
 
   /// Whether to open on the onboarding wizard.
   final bool showOnboarding;
+
+  /// The resolved current user id (null before onboarding completes).
+  final String? userId;
 
   @override
   State<LifeLedgerApp> createState() => _LifeLedgerAppState();
@@ -23,6 +29,17 @@ class LifeLedgerApp extends StatefulWidget {
 
 class _LifeLedgerAppState extends State<LifeLedgerApp> {
   late bool _showOnboarding = widget.showOnboarding;
+  late String? _userId = widget.userId;
+
+  Future<void> _onOnboardingFinished() async {
+    // Onboarding (including skip) always leaves a profile; pick it up.
+    final userId = (await getIt<GetCurrentUserId>().call()).valueOrNull;
+    if (!mounted) return;
+    setState(() {
+      _userId = userId;
+      _showOnboarding = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,20 +47,25 @@ class _LifeLedgerAppState extends State<LifeLedgerApp> {
       title: 'LifeLedger',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      home: _showOnboarding
-          ? BlocProvider<OnboardingCubit>(
-              create: (_) => getIt<OnboardingCubit>(),
-              child: OnboardingPage(
-                onFinished: () => setState(() => _showOnboarding = false),
-              ),
-            )
-          : const ShellPlaceholder(),
+      home: _home(),
     );
+  }
+
+  Widget _home() {
+    if (_showOnboarding) {
+      return BlocProvider<OnboardingCubit>(
+        create: (_) => getIt<OnboardingCubit>(),
+        child: OnboardingPage(onFinished: _onOnboardingFinished),
+      );
+    }
+    final userId = _userId;
+    if (userId == null) return const ShellPlaceholder();
+    return TodayPage(userId: userId);
   }
 }
 
-/// Minimal home shell: proves theming and boots instantly.
-/// Replaced by the real dashboard in M4 (docs/12-implementation-plan.md).
+/// Fallback shell shown only if no profile could be resolved (should not
+/// normally occur post-onboarding).
 class ShellPlaceholder extends StatelessWidget {
   /// Creates the placeholder.
   const ShellPlaceholder({super.key});

@@ -26,6 +26,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   mocktail: ^1.0.4
   # Real SQLite off-device for repository/migration tests (docs/11 §2).
   # Pinned <2.4.0 to pair with sqlite3 2.x (see dependency_overrides).

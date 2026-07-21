@@ -129,8 +129,11 @@ class OnboardingCubit extends Cubit<OnboardingState> {
   }
 
   /// Skips onboarding entirely — the app stays fully usable with defaults
-  /// (FR-4); the user can set up profile/goals later from Settings.
+  /// (FR-4). A minimal default profile is still created so logging always
+  /// has a user to attribute entries to; the user can complete their profile
+  /// and goals later from Settings.
   Future<void> skip() async {
+    await _saveProfile(UserProfile(id: _ids.newId()));
     await _appMeta.write(AppMetaStore.onboardingDoneKey, '1');
     emit(const OnboardingDone(skipped: true));
   }

@@ -121,12 +121,19 @@ void main() {
     );
 
     blocTest<OnboardingCubit, OnboardingState>(
-      'skip is a first-class path (FR-4): marks done without any data',
+      'skip (FR-4): still creates a default profile so logging has a user',
       build: build,
       act: (cubit) => cubit.skip(),
       expect: () => const [OnboardingDone(skipped: true)],
       verify: (_) {
-        verifyNever(() => saveProfile(any()));
+        // A minimal default profile is created; no weight/goals are generated.
+        verify(() => saveProfile(any())).called(1);
+        verifyNever(
+          () => weights.addEntry(
+            userId: any(named: 'userId'),
+            weightKg: any(named: 'weightKg'),
+          ),
+        );
         verify(
           () => appMeta.write(AppMetaStore.onboardingDoneKey, '1'),
         ).called(1);
