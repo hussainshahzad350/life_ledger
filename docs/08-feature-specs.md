@@ -1,0 +1,185 @@
+# Phase 8 — Feature Specifications
+
+> Part of the [LifeLedger Specification](00-README-index.md). Depends on: [03](03-architecture.md)–[07](07-ai-rules.md). Feeds: [09](09-folder-structure.md), [11](11-testing-strategy.md), [12](12-implementation-plan.md).
+
+Each feature is specified with a fixed template: **Purpose → Justification → Business Rules → Data
+(DB impact) → UI/Navigation → Validation → Error Handling → Future Extensibility**. Every feature
+traces to requirements ([02](02-requirements.md)), tables ([04](04-database-design.md)), screens
+([05](05-uiux-system.md)), and rules ([06](06-health-rules.md)/[07](07-ai-rules.md)). This
+traceability is the consistency contract of the whole spec.
+
+**Traceability matrix (feature → table → screen → rules → requirements):**
+
+| Feature | Tables | Screen(s) | Rules | Reqs |
+|---|---|---|---|---|
+| F1 Profile | `user_profile` | Onboarding, Profile | §2,§3,§7,§8 (health) | FR-1..4 |
+| F2 Goals | `goal` | Goals, Onboarding | §4–§9 (health) | FR-5..8 |
+| F3 Food logging | `food_item`,`food_entry` | Quick Add, Journal | §6 (health), §7 (AI parse) | FR-9..16 |
+| F4 Water | `water_entry` | Dashboard, Quick Add | §7 (health) | FR-17 |
+| F5 Weight | `weight_entry` | Dashboard, Weight detail | §8 (health) | FR-18 |
+| F6 Sleep | `sleep_entry` | Journal, Reports | — | FR-19 |
+| F7 Mood | `mood_entry` | Journal, Reports | §5 (AI corr) | FR-20 |
+| F8 Symptoms | `symptom_entry`,`symptom_type` | Journal, Reports | §5 (AI corr) | FR-21 |
+| F9 Exercise | `exercise_entry` | Journal, Reports | §3 (health) | FR-22 |
+| F10 Dashboard | (reads all) | Dashboard | §9 health score | FR-24..26 |
+| F11 Insights | `insight` | Insights | all of [07](07-ai-rules.md) | FR-27..30 |
+| F12 Reports | (reads all) | Reports | health/AI | FR-31..33 |
+| F13 Notifications | `app_meta` | Settings | — | FR-34,35 |
+| F14 Backup/Export | (all) + `app_meta` | Settings | — | FR-36..39 |
+| F15 Settings | `user_profile`,`app_meta` | Settings | — | FR-40..42 |
+
+---
+
+## F1 — User Profile
+- **Purpose.** Capture the minimum body data needed to personalize goals and metrics.
+- **Justification.** Without sex/age/height/weight the health engine can't compute BMR/TDEE/BMI ([06](06-health-rules.md)). Kept minimal to honor privacy and simplicity.
+- **Business rules.** Metric stored canonically ([04](04-database-design.md) §2); editing recomputes dependent goals; profile is skippable with defaults ([FR-4](02-requirements.md)).
+- **Data.** `user_profile` (single row v1). Height in cm, canonical.
+- **UI/Nav.** Onboarding step 2; editable from More → Profile ([05](05-uiux-system.md) §5.6).
+- **Validation.** Height 0–300 cm; birth date not in the future; sex ∈ enum. Domain value objects enforce before persist.
+- **Errors.** `ValidationFailure` surfaced inline; `DatabaseFailure` → retry with message.
+- **Future.** Multi-profile (add rows), body-fat % for lean-mass protein targeting, Health Connect import.
+
+## F2 — Goals
+- **Purpose.** Define the targets the whole app measures against.
+- **Justification.** Goals turn raw logs into "remaining"/adherence — the dashboard's core value.
+- **Business rules.** System-proposed defaults from the engine ([06](06-health-rules.md)); user overrides flagged `source='user'`; **versioned** (close old, insert new) for historical report accuracy ([04](04-database-design.md) §4.2, [FR-8](02-requirements.md)).
+- **Data.** `goal` (versioned rows).
+- **UI/Nav.** Goals screen; preview during onboarding.
+- **Validation.** Targets within safety bands ([06](06-health-rules.md) §4.1/§7); objective ∈ enum.
+- **Errors.** Below-floor calorie goal → clamp + warning; conflicting active goals prevented by the close-then-insert rule.
+- **Future.** Adaptive goals that adjust to trends; goal templates.
+
+## F3 — Food & Meal Logging (core)
+- **Purpose.** Fast, low-friction recording of what the user eats.
+- **Justification.** The product's most-used action; the < 10 s promise ([FR-10](02-requirements.md)) lives here.
+- **Business rules.** Entry = `food_item` × `quantity` in a `meal_slot`; nutrition derived ([04](04-database-design.md) §9); `local_date` stamped at write for correct day grouping; soft-delete + Undo.
+- **Data.** `food_item` (seed + custom + favorites), `food_entry`. Indexes `idx_food_entry_user_date` ([04](04-database-design.md) §6).
+- **UI/Nav.** Quick Add opens on Recents/Favorites; meal slot auto-selected by time; stepper quantity; optional NL parse ([07](07-ai-rules.md) §7). Journal timeline groups by meal ([05](05-uiux-system.md) §5.3).
+- **Validation.** Quantity > 0; nutrition ≥ 0; custom food requires name + serving. NL results always user-confirmed.
+- **Errors.** No match in NL parse → prompt to search/create; save failure rolls back optimistic UI.
+- **Future.** Barcode scan, image recognition ([07](07-ai-rules.md) §8), nutrition snapshot on entry ([04](04-database-design.md) §9), recipes/meals composed of items.
+
+## F4 — Water
+- **Purpose.** One-tap hydration logging.
+- **Justification.** Answers "am I drinking enough water?"; extremely low friction → high adherence.
+- **Business rules.** Increment by configurable unit (e.g., 250 ml); goal from engine ([06](06-health-rules.md) §7); day-grouped by `local_date`.
+- **Data.** `water_entry`.
+- **UI/Nav.** Dashboard quick-add chip (`💧 +250`) and detail screen.
+- **Validation.** amount > 0; clamp daily goal to band.
+- **Errors.** Standard soft-delete/Undo; `DatabaseFailure` handling.
+- **Future.** Beverage types, caffeine tracking, reminders by pace ([07](07-ai-rules.md) `HYDRATION_TIMING`).
+
+## F5 — Weight
+- **Purpose.** Track weight and its trend (not single readings).
+- **Justification.** Answers "why do I gain/lose weight?"; trend > noise.
+- **Business rules.** Store kg canonical; compute **moving-average trend** (not raw jitter) for display and the `TREND_WEIGHT` insight ([07](07-ai-rules.md)).
+- **Data.** `weight_entry`, index `idx_weight_user_date`.
+- **UI/Nav.** Dashboard card + line chart with moving average ([05](05-uiux-system.md) §5.4).
+- **Validation.** 0 < kg < 700 (DB CHECK + domain).
+- **Errors.** Duplicate same-day entries allowed (keep latest for "current"); standard failures.
+- **Future.** Body measurements, body-fat %, Health Connect sync.
+
+## F6 — Sleep
+- **Purpose.** Record sleep duration/quality for correlation with mood/energy.
+- **Business rules.** Duration from start/end or entered directly; quality 1–5 optional; day attribution rule = the wake date's `local_date`.
+- **Data.** `sleep_entry`.
+- **UI/Nav.** Journal quick entry; Reports charts.
+- **Validation.** end ≥ start; duration ≥ 0; quality 1–5.
+- **Errors.** Overnight spanning handled by attribution rule; standard failures.
+- **Future.** Auto-capture via Health Connect/wearable ([01](01-vision.md) Persona D).
+
+## F7 — Mood
+- **Purpose.** Lightweight subjective wellbeing signal.
+- **Business rules.** Ordinal 1–5 + optional note; feeds `CORR_SLEEP_MOOD` ([07](07-ai-rules.md) §5).
+- **Data.** `mood_entry`. **UI/Nav.** Journal emoji selector; Reports trend.
+- **Validation.** mood ∈ 1..5. **Errors.** standard.
+- **Future.** Tags (stress, energy), time-of-day mood.
+
+## F8 — Symptoms
+- **Purpose.** Track symptoms to find food/lifestyle associations.
+- **Justification.** Persona B's core need ("which foods cause digestive issues?").
+- **Business rules.** Typed via `symptom_type` (seeded + user-added); severity 1–5; feeds `CORR_FOOD_SYMPTOM` with strict honesty rules ([07](07-ai-rules.md) §5/§6).
+- **Data.** `symptom_entry`, `symptom_type`.
+- **UI/Nav.** Journal quick entry; pattern report overlays symptom vs. food flag.
+- **Validation.** severity ∈ 1..5; symptom_type FK valid.
+- **Errors.** standard; correlation only when sample sufficient.
+- **Future.** Symptom clusters, medication correlation (F+medication).
+
+## F9 — Exercise
+- **Purpose.** Record activity for context (not a fitness tracker).
+- **Business rules.** Type + duration (+ optional intensity/energy). By default **not** added to TDEE to avoid double-counting ([06](06-health-rules.md) §3); optional labeled toggle to include.
+- **Data.** `exercise_entry`. **UI/Nav.** Journal entry; Reports.
+- **Validation.** duration ≥ 0; intensity ∈ enum. **Errors.** standard.
+- **Future.** Health Connect activity import, step count.
+
+## F10 — Dashboard
+- **Purpose.** Answer the five questions instantly ([FR-24](02-requirements.md)).
+- **Justification.** The at-a-glance promise is the product's face.
+- **Business rules.** Reads today's aggregates (SQL `GROUP BY local_date`) + active goals + latest weight trend + Health Score ([06](06-health-rules.md) §9) + latest insight.
+- **Data.** Reads across log tables via indexed queries; no writes.
+- **UI/Nav.** Home tab; each metric tappable to detail ([05](05-uiux-system.md) §5.1).
+- **Performance.** Cold start ≤ 1.5 s ([NFR-1](02-requirements.md)) via indexed aggregate queries + skeleton loading.
+- **Errors.** Partial-data days render gracefully (empty states); a failed metric shows a retry chip, not a blank dashboard.
+- **Future.** Home-screen widget, Wear OS glanceable.
+
+## F11 — Insights
+- **Purpose.** Deliver the "understanding" payoff ([07](07-ai-rules.md)).
+- **Business rules.** Rule engine generates `insight` rows with confidence + evidence; safety filter mandatory; dismissible; feedback stored.
+- **Data.** `insight` (`idx_insight_user_period`).
+- **UI/Nav.** Insights list + "why?" evidence view; latest surfaced on dashboard.
+- **Validation.** No insight below sample thresholds; every insight has confidence + disclaimer.
+- **Errors.** Engine failure logs locally, never blocks the app; stale insights recomputed idempotently.
+- **Future.** On-device ML, red-flag routing (conservative), richer correlations.
+
+## F12 — Reports
+- **Purpose.** Daily/weekly/monthly/yearly views of nutrition, weight, habits, patterns.
+- **Business rules.** Aggregation pushed into SQL with indexes; reports honor the **goal in force at the time** via `goal` versioning ([04](04-database-design.md) §4.2).
+- **Data.** Read-only across all log tables.
+- **UI/Nav.** Reports tab with range selector + charts ([05](05-uiux-system.md) §5.4); dataviz palette both themes.
+- **Performance.** 1-year range ≤ 800 ms ([NFR-3](02-requirements.md)).
+- **Errors.** Large ranges stream/paginate; empty ranges show guidance.
+- **Future.** PDF export of reports, shareable (privacy-preserving) summaries.
+
+## F13 — Notifications
+- **Purpose.** Gentle, local, opt-in reminders.
+- **Business rules.** All local (`flutter_local_notifications`); **off by default** ([FR-34](02-requirements.md)); user-scheduled; no network.
+- **Data.** Config in `app_meta`.
+- **UI/Nav.** Settings → Reminders.
+- **Validation.** Valid times; respects OS notification permission ([NFR-8](02-requirements.md)).
+- **Errors.** `PermissionFailure` → explain + link to settings.
+- **Future.** Smart, pattern-based nudges (still local + opt-in).
+
+## F14 — Backup / Restore / Export / Import
+- **Purpose.** Guarantee data ownership and durability ([FR-36](02-requirements.md)–39).
+- **Business rules.** Encrypted backup (keystore key); version-headered; restore runs migrations if older; export = JSON/CSV; import validated + idempotent by UUID; wipe-all is hard delete with typed confirmation ([04](04-database-design.md) §8).
+- **Data.** All tables; `app_meta.last_backup`.
+- **UI/Nav.** Settings → Data.
+- **Validation.** Header/schema checks; refuse newer-than-app backups.
+- **Errors.** `BackupFailure(stage)` with clear recovery; all in transactions.
+- **Future.** Optional encrypted cloud backup (opt-in), scheduled auto-backup.
+
+## F15 — Settings & Privacy
+- **Purpose.** Control theme, units, reminders, and privacy.
+- **Business rules.** Theme (system/light/dark), units propagate everywhere; "works offline" affirmation; "delete all data"; disabled "Cloud sync (coming soon)" ([FR-42](02-requirements.md)).
+- **Data.** `user_profile` (units), `app_meta`.
+- **UI/Nav.** More → Settings.
+- **Validation.** Enum-bound selections.
+- **Errors.** standard.
+- **Future.** Cloud sync enablement, Health Connect toggles, per-metric privacy.
+
+---
+
+## Future Features (interfaces/schema only in v1)
+| Feature | Status | Hook |
+|---|---|---|
+| Medication tracking (FR-23) | Deferred | `medication*` tables sketched ([04](04-database-design.md) §4.9) |
+| Cloud sync | Designed, not built | sync columns + UUIDs ([04](04-database-design.md) §10) |
+| Health Connect | Roadmap | `health_connect_source` provenance table |
+| Wear OS | Roadmap | presentation decoupled from logic ([05](05-uiux-system.md) §8) |
+| Voice / image logging | Roadmap | `VoiceLogger`/`FoodImageRecognizer` interfaces ([07](07-ai-rules.md) §8) |
+| Micronutrients | Roadmap | `food_item_nutrient` k/v table |
+
+---
+
+*Next: [Phase 9 — Folder Structure](09-folder-structure.md).*
