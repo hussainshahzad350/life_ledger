@@ -23,6 +23,8 @@ import 'package:life_ledger/features/profile/application/get_current_user_id.dar
 import 'package:life_ledger/features/profile/application/save_profile.dart';
 import 'package:life_ledger/features/profile/domain/repositories/profile_repository.dart';
 import 'package:life_ledger/features/profile/infrastructure/repositories/profile_repository_impl.dart';
+import 'package:life_ledger/features/reports/domain/report_models.dart';
+import 'package:life_ledger/features/reports/infrastructure/report_repository_impl.dart';
 import 'package:life_ledger/features/sleep/domain/sleep_entry.dart';
 import 'package:life_ledger/features/sleep/infrastructure/sleep_repository_impl.dart';
 import 'package:life_ledger/features/symptoms/domain/symptom.dart';
@@ -119,6 +121,10 @@ Future<void> configureDependencies() async {
         ids: getIt<IdGenerator>(),
       ),
     )
+    ..registerLazySingleton<ReportRepository>(
+      () =>
+          ReportRepositoryImpl(db: getIt<AppDatabase>(), clock: getIt<Clock>()),
+    )
     ..registerLazySingleton<FoodSeeder>(() => FoodSeeder(getIt<AppDatabase>()))
     // Use cases.
     ..registerFactory<SaveProfile>(
@@ -183,6 +189,7 @@ void diSelfCheck() {
     ..get<MoodRepository>()
     ..get<SymptomRepository>()
     ..get<ExerciseRepository>()
+    ..get<ReportRepository>()
     ..get<FoodSeeder>()
     ..get<SaveProfile>()
     ..get<GetProfile>()

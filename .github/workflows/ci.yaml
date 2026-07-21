@@ -18,9 +18,13 @@ jobs:
       - name: Install system SQLite
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
 
+      # Pinned so golden-image tests (docs/11 §6, F12 charts) render
+      # byte-identically to the committed baselines; a floating stable can
+      # shift anti-aliasing and fail exact-pixel golden comparisons.
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.44.7
           cache: true
 
       - name: Install dependencies

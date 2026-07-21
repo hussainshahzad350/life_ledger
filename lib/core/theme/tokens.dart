@@ -42,4 +42,17 @@ abstract final class AppTokens {
 
   /// Minimum touch target in dp (docs/05 §7 accessibility).
   static const double minTouchTarget = 48;
+
+  /// Categorical dataviz palette (docs/05 §5.4, docs/08 F12). Chosen for
+  /// adequate contrast on both light and dark surfaces and to stay
+  /// distinguishable under common colour-vision deficiencies; charts pick a
+  /// series colour from here rather than reusing the brand seed.
+  static const List<Color> dataViz = [
+    Color(0xFF2E7D6B), // teal — nutrition/primary
+    Color(0xFF4C72B0), // blue — water
+    Color(0xFFDD8452), // amber — weight
+    Color(0xFF8172B3), // violet — sleep
+    Color(0xFF55A868), // green — mood/positive
+    Color(0xFFC44E52), // red — symptoms/attention
+  ];
 }

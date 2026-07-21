@@ -13,6 +13,7 @@ import 'package:life_ledger/features/food/domain/repositories/food_repository.da
 import 'package:life_ledger/features/food/presentation/cubit/quick_add_cubit.dart';
 import 'package:life_ledger/features/food/presentation/pages/quick_add_page.dart';
 import 'package:life_ledger/features/journal/presentation/cubit/journal_cubit.dart';
+import 'package:life_ledger/features/reports/presentation/pages/reports_page.dart';
 import 'package:life_ledger/features/trackers/presentation/pages/trackers_page.dart';
 import 'package:life_ledger/features/water/domain/repositories/water_repository.dart';
 import 'package:life_ledger/features/water/presentation/cubit/water_cubit.dart';
@@ -75,6 +76,12 @@ class _DashboardView extends StatelessWidget {
     if (context.mounted) await _refreshAll(context);
   }
 
+  void _openReports(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => ReportsPage(userId: userId)),
+    );
+  }
+
   Future<void> _openQuickAdd(BuildContext context) async {
     await Navigator.of(context).push<FoodEntry>(
       MaterialPageRoute(
@@ -102,6 +109,11 @@ class _DashboardView extends StatelessWidget {
             icon: const Icon(Icons.timeline_outlined),
             tooltip: 'Trackers',
             onPressed: () => _openTrackers(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart_outlined),
+            tooltip: 'Reports',
+            onPressed: () => _openReports(context),
           ),
         ],
       ),
