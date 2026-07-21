@@ -1,0 +1,46 @@
+# LifeLedger CI — the merge gate (docs/11-testing-strategy.md §6).
+# 1. formatting  2. zero-warning analyze  3. tests with coverage
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    name: Format, Analyze, Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # sqlite3 2.x loads the system libsqlite3 at runtime (see pubspec).
+      - name: Install system SQLite
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      # Pinned so golden-image tests (docs/11 §6, F12 charts) render
+      # byte-identically to the committed baselines; a floating stable can
+      # shift anti-aliasing and fail exact-pixel golden comparisons.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.7
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze (zero-warning policy)
+        run: flutter analyze --fatal-infos
+
+      - name: Run tests with coverage
+        run: flutter test --coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov
+          path: coverage/lcov.info

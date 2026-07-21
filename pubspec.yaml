@@ -1,0 +1,44 @@
+name: life_ledger
+description: "LifeLedger — an Offline-First, Privacy-First, AI-Ready Personal Health Journal. Understand your body, one day at a time."
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.2
+
+# Dependency rationale lives in docs/03 (state mgmt ADR-0002, DI ADR-0003,
+# persistence ADR-0005) and every addition passes the privacy gate (docs/10 §7).
+dependencies:
+  cupertino_icons: ^1.0.8
+  equatable: ^2.0.7
+  flutter:
+    sdk: flutter
+  flutter_bloc: ^9.1.1
+  get_it: ^8.0.3
+  path: ^1.9.0
+  path_provider: ^2.1.5
+  sqflite: ^2.4.1
+  uuid: ^4.5.1
+
+dev_dependencies:
+  bloc_test: ^10.0.0
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  mocktail: ^1.0.4
+  # Real SQLite off-device for repository/migration tests (docs/11 §2).
+  # Pinned <2.4.0 to pair with sqlite3 2.x (see dependency_overrides).
+  sqflite_common_ffi: '>=2.3.4 <2.4.0'
+
+# sqlite3 3.x fetches a prebuilt libsqlite3 at build time (native assets),
+# which fails behind restricted networks. The 2.x line loads the system
+# libsqlite3 at runtime instead — deterministic for tests locally and in CI
+# (CI installs libsqlite3-dev).
+dependency_overrides:
+  sqlite3: ^2.7.0
+
+flutter:
+  uses-material-design: true
