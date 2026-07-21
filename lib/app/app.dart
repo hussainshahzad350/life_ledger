@@ -1,14 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:life_ledger/core/di/injector.dart';
 import 'package:life_ledger/core/theme/app_theme.dart';
 import 'package:life_ledger/core/theme/tokens.dart';
+import 'package:life_ledger/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:life_ledger/features/onboarding/presentation/pages/onboarding_page.dart';
 
 /// The root widget: MaterialApp shell with Material 3 light/dark themes
-/// (docs/05-uiux-system.md). Navigation destinations arrive with their
-/// feature milestones; M0 ships a minimal home shell.
-class LifeLedgerApp extends StatelessWidget {
-  /// Creates the app shell.
-  const LifeLedgerApp({super.key});
+/// (docs/05-uiux-system.md). Shows the skippable onboarding wizard on
+/// first launch; the dashboard replaces the placeholder home in M4.
+class LifeLedgerApp extends StatefulWidget {
+  /// Creates the app shell. [showOnboarding] is true on first launch.
+  const LifeLedgerApp({this.showOnboarding = false, super.key});
+
+  /// Whether to open on the onboarding wizard.
+  final bool showOnboarding;
+
+  @override
+  State<LifeLedgerApp> createState() => _LifeLedgerAppState();
+}
+
+class _LifeLedgerAppState extends State<LifeLedgerApp> {
+  late bool _showOnboarding = widget.showOnboarding;
 
   @override
   Widget build(BuildContext context) {
@@ -16,15 +30,23 @@ class LifeLedgerApp extends StatelessWidget {
       title: 'LifeLedger',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      home: const _ShellPlaceholder(),
+      home: _showOnboarding
+          ? BlocProvider<OnboardingCubit>(
+              create: (_) => getIt<OnboardingCubit>(),
+              child: OnboardingPage(
+                onFinished: () => setState(() => _showOnboarding = false),
+              ),
+            )
+          : const ShellPlaceholder(),
     );
   }
 }
 
-/// Minimal M0 home: proves theming, boots instantly, and states what's next.
+/// Minimal home shell: proves theming and boots instantly.
 /// Replaced by the real dashboard in M4 (docs/12-implementation-plan.md).
-class _ShellPlaceholder extends StatelessWidget {
-  const _ShellPlaceholder();
+class ShellPlaceholder extends StatelessWidget {
+  /// Creates the placeholder.
+  const ShellPlaceholder({super.key});
 
   @override
   Widget build(BuildContext context) {
