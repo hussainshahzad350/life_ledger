@@ -16,6 +16,10 @@ import 'package:life_ledger/features/goals/application/generate_default_goals.da
 import 'package:life_ledger/features/goals/domain/repositories/goal_repository.dart';
 import 'package:life_ledger/features/goals/infrastructure/repositories/goal_repository_impl.dart';
 import 'package:life_ledger/features/goals/presentation/cubit/goals_cubit.dart';
+import 'package:life_ledger/features/insights/application/generate_insights.dart';
+import 'package:life_ledger/features/insights/domain/insight_record.dart';
+import 'package:life_ledger/features/insights/infrastructure/insight_context_gateway_impl.dart';
+import 'package:life_ledger/features/insights/infrastructure/insight_repository_impl.dart';
 import 'package:life_ledger/features/mood/domain/mood_entry.dart';
 import 'package:life_ledger/features/mood/infrastructure/mood_repository_impl.dart';
 import 'package:life_ledger/features/onboarding/presentation/cubit/onboarding_cubit.dart';
@@ -125,6 +129,20 @@ Future<void> configureDependencies() async {
       () =>
           ReportRepositoryImpl(db: getIt<AppDatabase>(), clock: getIt<Clock>()),
     )
+    ..registerLazySingleton<InsightContextGateway>(
+      () => InsightContextGatewayImpl(
+        db: getIt<AppDatabase>(),
+        goals: getIt<GoalRepository>(),
+        clock: getIt<Clock>(),
+      ),
+    )
+    ..registerLazySingleton<InsightRepository>(
+      () => InsightRepositoryImpl(
+        db: getIt<AppDatabase>(),
+        clock: getIt<Clock>(),
+        ids: getIt<IdGenerator>(),
+      ),
+    )
     ..registerLazySingleton<FoodSeeder>(() => FoodSeeder(getIt<AppDatabase>()))
     // Use cases.
     ..registerFactory<SaveProfile>(
@@ -154,6 +172,12 @@ Future<void> configureDependencies() async {
       () => GenerateDefaultGoals(
         goals: getIt<GoalRepository>(),
         clock: getIt<Clock>(),
+      ),
+    )
+    ..registerFactory<GenerateInsights>(
+      () => GenerateInsights(
+        gateway: getIt<InsightContextGateway>(),
+        repository: getIt<InsightRepository>(),
       ),
     )
     // Cubits.
@@ -190,6 +214,8 @@ void diSelfCheck() {
     ..get<SymptomRepository>()
     ..get<ExerciseRepository>()
     ..get<ReportRepository>()
+    ..get<InsightContextGateway>()
+    ..get<InsightRepository>()
     ..get<FoodSeeder>()
     ..get<SaveProfile>()
     ..get<GetProfile>()
@@ -198,6 +224,7 @@ void diSelfCheck() {
     ..get<GetDayTimeline>()
     ..get<GetDailySummary>()
     ..get<GenerateDefaultGoals>()
+    ..get<GenerateInsights>()
     ..get<GoalsCubit>()
     ..get<OnboardingCubit>();
 }
